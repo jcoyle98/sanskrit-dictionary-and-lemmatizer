@@ -1,0 +1,54 @@
+diff --git a/vidyut-kosha/src/kosha.rs b/vidyut-kosha/src/kosha.rs
+index 7cde5cd..3c22388 100644
+--- a/vidyut-kosha/src/kosha.rs
++++ b/vidyut-kosha/src/kosha.rs
+@@ -101,6 +101,13 @@ impl Kosha {
+         Ok(Self { fst, packer })
+     }
+ 
++    /// Creates a kosha from in-memory data, e.g. for WebAssembly where there is no filesystem.
++    pub fn from_bytes(fst_bytes: Vec<u8>, registry_bytes: &[u8]) -> Result<Self> {
++        let fst = Map::new(fst_bytes)?;
++        let packer = Packer::from_bytes(registry_bytes)?;
++        Ok(Self { fst, packer })
++    }
++
+     /// Returns the number of words in the kosha.
+     pub fn len(&self) -> usize {
+         self.packer.count
+diff --git a/vidyut-kosha/src/packing.rs b/vidyut-kosha/src/packing.rs
+index 04c7a2d..1dd2fa4 100644
+--- a/vidyut-kosha/src/packing.rs
++++ b/vidyut-kosha/src/packing.rs
+@@ -472,11 +472,20 @@ impl Packer {
+ 
+     /// Loads a packer from disk.
+     pub(crate) fn read(registry_path: &Path) -> Result<Self> {
+-        let mut ret = Self::new();
+-
+         let file = File::open(registry_path)?;
+         let reader = BufReader::new(file);
+         let registry: Registry = rmp_serde::from_read(reader)?;
++        Ok(Self::from_registry(registry))
++    }
++
++    /// Loads a packer from an in-memory registry.
++    pub(crate) fn from_bytes(registry_bytes: &[u8]) -> Result<Self> {
++        let registry: Registry = rmp_serde::from_slice(registry_bytes)?;
++        Ok(Self::from_registry(registry))
++    }
++
++    fn from_registry(registry: Registry) -> Self {
++        let mut ret = Self::new();
+ 
+         let Registry {
+             count,
+@@ -526,7 +535,7 @@ impl Packer {
+             .map(|(i, x)| (x.clone(), Id(i)))
+             .collect();
+ 
+-        Ok(ret)
++        ret
+     }
+ 
+     /// Writes the registry to disk.

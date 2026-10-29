@@ -1,0 +1,8 @@
+# Downloaded sources (fetched by `make fetch`)
+data-src/
+# Built data and WebAssembly (built by `make`)
+site/data/
+site/pkg/
+wasm/target/
+__pycache__/
+.DS_Store

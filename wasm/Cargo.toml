@@ -1,0 +1,27 @@
+[package]
+name = "sanskrit-engine"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "WebAssembly bindings for vidyut-kosha, vidyut-prakriya and vidyut-lipi used by the web app"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+vidyut-kosha = { path = "../vendor/vidyut/vidyut-kosha" }
+vidyut-prakriya = { path = "../vendor/vidyut/vidyut-prakriya", features = ["serde"] }
+vidyut-lipi = { path = "../vendor/vidyut/vidyut-lipi" }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+console_error_panic_hook = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+# Keep this crate out of vidyut's own workspace.
+[workspace]

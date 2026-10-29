@@ -1,0 +1,3 @@
+[submodule "vendor/vidyut"]
+	path = vendor/vidyut
+	url = https://github.com/ambuda-org/vidyut.git
