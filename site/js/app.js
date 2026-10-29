@@ -2,7 +2,7 @@ import * as D from './data.js';
 import * as E from './engine.js';
 import { renderBody, parseEntry, escapeHtml, scanUrl, cologneUrl } from './render.js';
 import { prefs, setPrefs, onPrefs, orderedDicts, resetPrefs } from './prefs.js';
-import { renderMorph, lemmasOf } from './grammar.js';
+import { renderMorph, lemmasOf, parseLine } from './grammar.js';
 import { renderEtym, etymSummary } from './etym.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -167,11 +167,13 @@ async function renderWord() {
   document.title = `${ns === 'sa' ? E.fromSlp1(key, 'Devanagari') + ' ' + E.fromSlp1(key, 'Iast') : key} — Sanskrit Dictionary`;
   main.innerHTML = `<header class="word-head">
       <h1>${ns === 'sa' ? saSpan(key) : escapeHtml(key)}${ns === 'sa' ? ` <span class="translit">${escapeHtml(E.fromSlp1(key, script() === 'Devanagari' ? 'Iast' : 'Devanagari'))}</span>` : ''}</h1>
+      <div id="parsed"></div>
       <div id="banner"></div>
     </header>
     <nav class="tabs">${(ns === 'sa' ? TABS : TABS.slice(0, 1)).map(([t, name]) => `<a href="${href(ns, key, t)}" class="${t === tab ? 'on' : ''}">${name}</a>`).join('')}</nav>
     <div id="panel"><p class="muted">Loading…</p></div>`;
 
+  if (ns === 'sa') showParse(key, token);
   const own = await D.entries(ns, key);
   if (token !== renderToken) return;
   renderNav(ns, key);
@@ -204,6 +206,18 @@ async function renderWord() {
   }
 }
 
+// The line under the headword listing every lemma the word can be parsed as.
+async function showParse(key, token) {
+  const el = $('#parsed');
+  if (!E.koshaReady()) el.innerHTML = '<p class="parsed muted">Parsing…</p>';
+  await startKosha();
+  if (token !== renderToken || !E.koshaReady()) return;
+  const items = parseLine(E.analyze(key), script(), (l) => href('sa', l, 'dict'));
+  el.innerHTML = items.length
+    ? `<div class="parsed"><span class="label">Parsed as a form of:</span><ul>${items.join('')}</ul><a class="more" href="${href('sa', key, 'morph')}">tables →</a></div>`
+    : '<p class="parsed muted">The lemmatizer has no parse for this word (it may be a stem, compound or rare form).</p>';
+}
+
 async function renderDictTab(panel, ns, key, own, token) {
   const dicts = orderedDicts(META).filter((d) => d.ns === ns);
   let html = '';
@@ -227,7 +241,7 @@ async function renderDictTab(panel, ns, key, own, token) {
     sources = found.slice(0, 3);
     const more = found.slice(3);
     $('#banner').innerHTML = found.length
-      ? `<p class="note">${saSpan(key)} is not a headword. The lemmatizer reads it as a form of ${sources.map(([l]) => `<a href="${href('sa', l, 'dict')}">${saSpan(l)}</a>`).join(', ')}${more.length ? `; less likely: ${more.map(([l]) => `<a href="${href('sa', l, 'dict')}">${saSpan(l)}</a>`).join(', ')}` : ''}. <a href="${href('sa', key, 'morph')}">Full analysis →</a></p>`
+      ? `<p class="note">${saSpan(key)} is not a headword, so entries for its most likely lemmas are shown below${more.length ? ` (also: ${more.map(([l]) => `<a href="${href('sa', l, 'dict')}">${saSpan(l)}</a>`).join(', ')})` : ''}.</p>`
       : `<p class="note">No dictionary has ${saSpan(key)} as a headword${lemmas.length ? ', and none of its possible lemmas were found either' : ''}. Try the suggestions as you type, or the nearby words on the left.</p>`;
   } else if (!own) {
     $('#banner').innerHTML = `<p class="note">No English–Sanskrit dictionary has “${escapeHtml(key)}” as a headword.</p>`;

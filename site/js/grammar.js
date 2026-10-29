@@ -255,3 +255,23 @@ export function lemmasOf(analyses) {
   }
   return out;
 }
+
+// "Parsed as a form of: …" — every lemma the kosha proposes, with its parses, as one line.
+// Readings that print identically (the kosha often derives one stem several ways) are merged;
+// plain nouns and finite verbs come before derived stems.
+export function parseLine(analyses, script, hrefFor) {
+  S = script;
+  const merged = new Map();
+  for (const g of group(analyses)) {
+    const a = g.head;
+    const derived = a.kind === 'subanta' && a.stem_kind === 'krdanta';
+    const kind = a.kind === 'tinanta' ? 'verb' : derived ? `from √${link(a.root)}` : a.avyaya ? 'indeclinable' : 'noun/adj.';
+    const id = `${a.lemma}|${kind}`;
+    if (!merged.has(id)) merged.set(id, { a, kind, rank: derived ? 1 : 0, parses: new Set() });
+    for (const p of g.parses.values()) merged.get(id).parses.add(parseLabel(p));
+  }
+  return [...merged.values()].sort((x, y) => x.rank - y.rank).map(({ a, kind, parses }) => {
+    const lemma = `<a class="sa lemma" href="${hrefFor(a.lemma)}">${escapeHtml(E.fromSlp1(a.lemma, S))}</a>`;
+    return `<li>${lemma} <span class="kind">${kind}</span> <span class="parse">${[...parses].join('; ')}</span></li>`;
+  });
+}

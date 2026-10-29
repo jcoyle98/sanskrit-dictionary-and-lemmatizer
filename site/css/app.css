@@ -241,3 +241,16 @@ dialog::backdrop { background: rgb(20 25 40 / 45%); }
   section.dict { padding: 12px 14px; }
 }
 .dict-head .rights { font-size: 11px; color: #9a9588; }
+
+/* "Parsed as a form of" line under the headword */
+.parsed { margin: 4px 0 6px; font-size: 13.5px; }
+div.parsed { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 6px 12px; }
+.parsed .label { font-weight: 600; color: var(--accent); white-space: nowrap; }
+.parsed ul { display: contents; list-style: none; }
+.parsed li { white-space: nowrap; }
+.parsed li + li::before { content: "·"; color: var(--line-strong); margin-right: 10px; }
+.parsed .lemma { font-size: 17px; font-weight: 700; }
+.parsed .kind { font-size: 11px; color: var(--muted); }
+.parsed .parse { color: var(--text); }
+.parsed .more { margin-left: auto; font-size: 12px; white-space: nowrap; }
+@media (max-width: 1000px) { .parsed li { white-space: normal; } }
