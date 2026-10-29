@@ -371,19 +371,41 @@ async function lemmaHeadwords(ns) {
 const ROW = 26;
 const nav = { ns: null, keys: [], current: null };
 
-function drawNav() {
+// Distance from the top of the scrolling column to the top of the list, whatever the layout
+// (offsetTop would be relative to the page when the column is not positioned, as on phones).
+function listOffset() {
+  const scroller = $('aside.left');
+  return $('#nearby').getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+}
+
+// Rows already on screen are kept, not redrawn, so a tap or click is never lost to a row
+// being replaced under the pointer while the list scrolls.
+function drawNav(reset = false) {
   const scroller = $('aside.left');
   const list = $('#nearby');
-  const top = scroller.scrollTop - list.offsetTop;
+  if (reset) list.replaceChildren();
+  const top = scroller.scrollTop - listOffset();
   const first = Math.max(0, Math.floor(top / ROW) - 15);
   const last = Math.min(nav.keys.length, first + Math.ceil(scroller.clientHeight / ROW) + 30);
-  let html = '';
+  const have = new Map();
+  for (const li of [...list.children]) {
+    const i = Number(li.dataset.i);
+    if (i < first || i >= last) li.remove();
+    else have.set(i, li);
+  }
+  const frag = document.createDocumentFragment();
   for (let i = first; i < last; i++) {
+    if (have.has(i)) continue;
     const k = nav.keys[i];
     const cur = k === nav.current;
-    html += `<li style="top:${i * ROW}px" class="${cur ? 'cur' : ''}"><a href="${href(nav.ns, k, 'dict')}"${cur ? ' aria-current="true"' : ''}>${nav.ns === 'sa' ? saSpan(k) : escapeHtml(k)}</a></li>`;
+    const li = document.createElement('li');
+    li.dataset.i = i;
+    li.style.top = `${i * ROW}px`;
+    if (cur) li.className = 'cur';
+    li.innerHTML = `<a href="${href(nav.ns, k, 'dict')}"${cur ? ' aria-current="true"' : ''}>${nav.ns === 'sa' ? saSpan(k) : escapeHtml(k)}</a>`;
+    frag.append(li);
   }
-  list.innerHTML = html;
+  list.append(frag);
 }
 
 async function renderNav(ns, key) {
@@ -408,8 +430,8 @@ async function renderNav(ns, key) {
   $('#nearby-note').innerHTML = note;
   $('#nearby').style.height = `${keys.length * ROW}px`;
   const scroller = $('aside.left');
-  scroller.scrollTop = $('#nearby').offsetTop + at * ROW - scroller.clientHeight / 2 + ROW / 2;
-  drawNav();
+  scroller.scrollTop = listOffset() + at * ROW - scroller.clientHeight / 2 + ROW / 2;
+  drawNav(true);
 }
 
 // ---- Right column: at a glance ---------------------------------------------------------------
@@ -579,7 +601,10 @@ async function main() {
   await E.initEngine();
   META = await D.dicts();
   wireSettings();
-  $('aside.left').addEventListener('scroll', () => nav.keys.length && requestAnimationFrame(drawNav), { passive: true });
+  let navFrame = 0;
+  $('aside.left').addEventListener('scroll', () => {
+    if (nav.keys.length && !navFrame) navFrame = requestAnimationFrame(() => { navFrame = 0; drawNav(); });
+  }, { passive: true });
   $('#search').addEventListener('submit', submitSearch);
   box().addEventListener('input', onBoxInput);
   box().addEventListener('keydown', onBoxKey);
