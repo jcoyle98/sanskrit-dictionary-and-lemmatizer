@@ -254,3 +254,27 @@ div.parsed { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10p
 .parsed .parse { color: var(--text); }
 .parsed .more { margin-left: auto; font-size: 12px; white-space: nowrap; }
 @media (max-width: 1000px) { .parsed li { white-space: normal; } }
+
+/* About: on narrow screens each dictionary's row becomes a labelled block */
+@media (max-width: 700px) {
+  table.biblio, table.biblio tbody, table.biblio tr, table.biblio td { display: block; width: 100%; }
+  table.biblio thead { display: none; }
+  table.biblio tr { border-bottom: 1px solid var(--line-strong); padding: 6px 0; }
+  table.biblio td { border: 0; padding: 1px 0; text-align: left; overflow-wrap: anywhere; }
+  table.biblio td:empty { display: none; }
+  table.biblio td::before { content: attr(data-label) ": "; color: var(--muted); }
+  table.biblio td[data-label="Code"]::before { content: ""; }
+  table.biblio td.num { text-align: left; padding: 1px 0; }
+  .about { overflow-wrap: anywhere; }
+}
+
+/* Etymology on narrow screens: language above its words, everything wraps */
+@media (max-width: 700px) {
+  table.cognates, table.cognates tbody, table.cognates tr, table.cognates th, table.cognates td { display: block; width: 100%; }
+  table.cognates th { border-top: 1px solid var(--line); padding: 5px 10px 2px; }
+  table.cognates td { border-top: 0; padding: 2px 10px 6px; }
+  details.cog { max-width: 100%; }
+  details.cog summary, details.cog li, .cite { white-space: normal; overflow-wrap: anywhere; }
+  .chip { white-space: nowrap; display: inline-block; margin-top: 2px; }
+  .insight, .etym-block { overflow-wrap: anywhere; }
+}

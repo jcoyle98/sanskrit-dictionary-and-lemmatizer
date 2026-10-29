@@ -490,7 +490,8 @@ function renderAbout() {
   $('#nearby').style.height = '';
   $('#nearby-note').innerHTML = '';
   $('#side').innerHTML = '';
-  const rows = META.map((d) => `<tr><td><b>${d.code}</b></td><td>${escapeHtml(d.bib?.authors?.join('; ') ?? '')}</td><td><i>${escapeHtml(d.bib?.book_title || d.title)}</i></td><td>${escapeHtml([d.bib?.place, d.bib?.publisher].filter(Boolean).join(': '))}</td><td>${escapeHtml(d.bib?.date ?? '')}</td><td class="num">${d.entries.toLocaleString()}</td><td>${rights(d) || '<span class="muted">see Cologne</span>'}</td></tr>`).join('');
+  // data-label names each cell when the table is restacked on narrow screens.
+  const rows = META.map((d) => `<tr><td data-label="Code"><b>${d.code}</b></td><td data-label="Author(s)">${escapeHtml(d.bib?.authors?.join('; ') ?? '')}</td><td data-label="Title"><i>${escapeHtml(d.bib?.book_title || d.title)}</i></td><td data-label="Published">${escapeHtml([d.bib?.place, d.bib?.publisher].filter(Boolean).join(': '))}</td><td data-label="Date">${escapeHtml(d.bib?.date ?? '')}</td><td data-label="Entries" class="num">${d.entries.toLocaleString()}</td><td data-label="Rights">${rights(d) || '<span class="muted">see Cologne</span>'}</td></tr>`).join('');
   $('#main').innerHTML = `<section class="about">
     <h1>About</h1>
     <h2>Dictionaries</h2>
