@@ -85,6 +85,61 @@ function agreement(rec) {
     <p class="muted">Counted from the dictionaries' own wording, matching words after removing accents and hyphens. Some works are related (MW 1899 revises MW 1872; PW abridges PWG), so agreement between them is not independent.</p></div>`;
 }
 
+// Text from the build with SLP1 kept in ⟦…⟧, shown in the reader's script.
+const withSanskrit = (t) => escapeHtml(t).replace(/⟦([^⟧]*)⟧/g, (_, x) => sa(x.replace(/&amp;/g, '&')));
+
+const QUAL_LABEL = {
+  'not': 'rejects this', 'said to be': 'reports it (“said to be”)', 'artificially formed': '“artificially formed”',
+  'corrupted': '“corrupted from”', 'fictitiously': '“fictitiously formed”', 'nisi': 'as one option (“nisi”)',
+  'more probably': '“more probably”', 'most probably': '“most probably”', 'probably': '“probably”', 'prob.': '“prob.”',
+  'perhaps': '“perhaps”', 'possibly': '“possibly”', 'rather': '“rather”', 'doubtful': '“doubtful”', '?': 'with a query',
+  'wahrscheinlichste': '“am wahrscheinlichsten”', 'wahrscheinlich': '“wahrscheinlich”', 'wol': '“wol” (probably)',
+  'wohl': '“wohl” (probably)', 'vielleicht': '“vielleicht” (perhaps)', 'unsicher': '“unsicher”', 'or': 'as one option (“or”)',
+  'oder': 'as one option (“oder”)', 'vel': 'as one option (“vel”)',
+};
+
+function formula(it, base) {
+  const pre = (it.prefixes ?? []).map((p) => sa(p)).join(' + ');
+  const root = (it.kind === 'root' ? '√' : '') + sa(base);
+  const aff = it.affix ? it.affix.split('+').map((a) => sa(a)).join(' + ') : '';
+  return [pre, root, aff].filter(Boolean).join(' + ');
+}
+
+// What the dictionaries say a word is derived from, grouped by the root or base they name.
+function derivation(rec, key) {
+  const groups = rec.derivations ?? [];
+  const assess = rec.assessments ?? [];
+  if (!groups.length && !assess.length) return '';
+  const support = (g) => g.items.filter((i) => i.qual !== 'not');
+  const backed = groups.filter((g) => support(g).length);
+  const rejected = groups.flatMap((g) => g.items.filter((i) => i.qual === 'not').map((i) => ({ ...i, base: g.base })));
+  const years = (ds) => ds.map((d) => META[d]?.bib?.pub).filter(Boolean);
+  const chip = (it) => {
+    const extra = [it.source ? `per ${escapeHtml(it.source)}` : '', QUAL_LABEL[it.qual] ?? (it.qual ? `“${escapeHtml(it.qual)}”` : '')].filter(Boolean).join(', ');
+    return `<span class="chip" title="${escapeHtml(META[it.dict]?.title ?? it.dict)}">${dictLabel(it.dict)}${extra ? ` · ${extra}` : ''}</span>`;
+  };
+  let summary = '';
+  if (backed.length) {
+    const top = backed[0];
+    const ds = [...new Set(support(top).map((i) => i.dict))];
+    const ys = years(ds);
+    summary = `<p class="synth">${ds.length > 1 ? `<b>${ds.length}</b> dictionaries${ys.length ? ` (${Math.min(...ys)}–${Math.max(...ys)})` : ''} derive` : 'One dictionary derives'} ${sa(key)} from <b><a href="#/sa/${encodeURIComponent(top.base)}">${support(top).some((i) => i.kind === 'root') ? '√' : ''}${sa(top.base)}</a></b>${backed.length > 1 ? `; ${backed.length - 1} other derivation${backed.length > 2 ? 's are' : ' is'} also proposed` : ''}${rejected.length ? `, and ${rejected.length === 1 ? 'one is explicitly rejected' : rejected.length + ' are explicitly rejected'}` : ''}.</p>`;
+  }
+  const rows = backed.map((g) => {
+    const items = support(g);
+    const detail = items.map((it) => `<li>${formula(it, g.base)} ${chip(it)} ${citation({ ...it, key })}<br><q>${withSanskrit(it.quote)}</q></li>`).join('');
+    return `<tr><th><a href="#/sa/${encodeURIComponent(g.base)}">${items.some((i) => i.kind === 'root') ? '√' : ''}${sa(g.base)}</a></th>
+      <td><details class="cog"><summary>${items.map(chip).join('')}</summary><ul>${detail}</ul></details></td></tr>`;
+  }).join('');
+  const rej = rejected.map((it) => `<li>${chip(it)} rejects ${it.kind === 'root' ? '√' : ''}${sa(it.base)}: <q>${withSanskrit(it.quote)}</q> ${citation({ ...it, key })}</li>`).join('');
+  const certainty = assess.map((a) => `<li><b>${dictLabel(a.dict)}</b>: <q>${withSanskrit(a.text)}</q> ${citation({ ...a, key })}</li>`).join('');
+  return `<div class="insight derivation-box"><h3>Derivation</h3>${summary}
+    ${rows ? `<table class="cognates">${rows}</table>` : ''}
+    ${rej ? `<p class="muted">Rejected derivations</p><ul class="notes">${rej}</ul>` : ''}
+    ${certainty ? `<p class="muted">On how certain this is</p><ul class="notes">${certainty}</ul>` : ''}
+    <p class="muted">Read from each dictionary's own wording (MW “fr. √…”, PWG “von …”, Bopp “r. … s. …”, Wilson “E. …”, Apte “[…-…]”, Burnouf “(…)”, Macdonell “[√ …]”, Lanman's bracketed notes, Grassmann's prose). Open a row to see every source's words; only roots and bases that are themselves headwords are counted.</p></div>`;
+}
+
 function roots(rec) {
   if (!rec.roots?.length) return '';
   const lines = [];
@@ -98,7 +153,7 @@ function roots(rec) {
       lines.push(`<li>√${sa(r.root)} — listed in <a href="https://www.sanskrit-lexicon.uni-koeln.de/scans/csl-whitroot/disp/index.php" target="_blank" rel="noopener">Whitney Roots</a> per MW's markup (<code>${escapeHtml(r.text)}</code>) <span class="cite">MW L.${escapeHtml(r.L)}</span></li>`);
     }
   }
-  return `<h3>Sanskrit root</h3><ul class="roots">${lines.join('')}</ul>`;
+  return `<h3>Cologne's root tables</h3><ul class="roots">${lines.join('')}</ul>`;
 }
 
 export function renderEtym(el, key, rec, meta, script, lemmaRecs = []) {
@@ -120,6 +175,7 @@ export function renderEtym(el, key, rec, meta, script, lemmaRecs = []) {
     const other = r.cognates.filter((c) => c.family === 'other' && c.kind !== 'loan');
     parts.push(`<section class="etym-block">${blocks.length > 1 || k !== key ? `<h2>${sa(k)}${k !== key ? ' <span class="muted">(lemma)</span>' : ''}</h2>` : ''}
       ${r.rv ? `<p class="insight">Grassmann's <i>Wörterbuch zum Rig-Veda</i> cites <b>${r.rv.passages}</b> Ṛgveda passages for this word <span class="cite"><a href="#/sa/${encodeURIComponent(k)}/dict" data-jump="GRA">GRA</a> L.${escapeHtml(r.rv.L)} · <a href="${scanUrl('GRA', r.rv.pc)}" target="_blank" rel="noopener">page ${escapeHtml(r.rv.pc)}</a></span></p>` : ''}
+      ${derivation(r, k)}
       ${agreement(r)}
       ${languageTable(loans, 'Described as borrowed or derived from', 'Statements such as “fr. Gk.”, “aus”, “borrowed from”. Open each item to read the dictionary’s exact words.')}
       ${languageTable(ie, 'Indo-European comparisons', 'Words in related languages that these dictionaries compare with the Sanskrit. Open an item to see each dictionary’s wording, entry and printed page.')}

@@ -278,3 +278,8 @@ div.parsed { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10p
   .chip { white-space: nowrap; display: inline-block; margin-top: 2px; }
   .insight, .etym-block { overflow-wrap: anywhere; }
 }
+
+/* Derivation synthesis */
+.derivation-box table.cognates { margin: 6px 0; }
+.derivation-box th a { font-size: 16px; }
+.synth { margin: 2px 0 6px; font-size: 14.5px; }

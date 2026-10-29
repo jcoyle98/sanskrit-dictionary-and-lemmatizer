@@ -29,6 +29,7 @@ SRC = ROOT / "data-src" / "cdsl"
 OUT = ROOT / "site" / "data" / "etym"
 sys.path.insert(0, str(ROOT / "scripts"))
 from build_dicts import read_bibliography, read_entries, slp1_sort_key  # noqa: E402
+import derivations  # noqa: E402
 
 # Dictionaries whose <lang> tags or abbreviations mark comparative material.
 SOURCES = ["MW", "MW72", "BOP", "BEN", "LAN", "GRA", "PWG", "PW", "BUR", "MD",
@@ -182,7 +183,8 @@ def extract(segs):
             # A Greek word with no label is still a Greek comparison.
             prev_lab = next((s for s in reversed(segs[max(0, i - 3):i]) if s[0] in ("lab", "lab?")), None)
             word = text.strip(" ,.;")
-            if prev_lab is None and len(word) > 1:
+            mostly_greek = len(GREEK.findall(word)) > len(re.findall(r"[A-Za-z]", word))
+            if prev_lab is None and len(word) > 1 and mostly_greek:
                 found.append(("Greek", [word], i, i))
             i += 1
             continue
@@ -221,6 +223,7 @@ def extract(segs):
                 break
             else:
                 break
+        words = [w for w in words if not (GREEK.search(w) and len(re.findall(r"[A-Za-z]", w)) >= len(GREEK.findall(w)))]
         words = [w.lstrip("= ") for w in words
                  if len(w.strip("-")) > 1 and "(" not in w and ")" not in w
                  and not all(x.strip(".,").lower() in STOP for x in w.split())]
@@ -260,7 +263,7 @@ def tail_field(raw, name):
 def main():
     dicts = json.loads((ROOT / "scripts" / "dicts.json").read_text())
     pub = {d["code"]: read_bibliography(d["code"])["pub"] or 9999 for d in dicts}
-    data = defaultdict(lambda: {"cognates": [], "notes": [], "roots": [], "rv": None})
+    data = defaultdict(lambda: {"cognates": [], "notes": [], "roots": [], "rv": None, "proposals": [], "assessments": []})
 
     for code in SOURCES:
         n_items = 0
@@ -294,6 +297,36 @@ def main():
                 data[key1]["notes"].append({"dict": code, "L": L, "pc": pc,
                                             "text": ("…" if a else "") + text[a:b].strip() + ("…" if b < len(text) else "")})
         print(f"{code:5} {n_items} comparative items", file=sys.stderr)
+
+    # Derivations stated in each dictionary's prose, and statements that a derivation is uncertain.
+    headwords = set()
+    with gzip.open(ROOT / "site" / "data" / "sa" / "headwords.tsv.gz", "rt", encoding="utf-8") as f:
+        for line in f:
+            headwords.add(line.split("\t", 1)[0])
+    for code in sorted(set(derivations.READERS) | set(derivations.ASSESS_IN)):
+        reader = derivations.READERS.get(code)
+        n_prop = n_assess = 0
+        for key1, L, raw in read_entries(code):
+            body = body_of(raw)
+            pc = tail_field(raw, "pc")
+            rec = data[key1]
+            if reader:
+                for p in reader(body):
+                    # Keep proposals whose root or base is itself a headword, and not the word itself.
+                    base = derivations.resolve(p["base"], headwords, p.pop("root_hint", False))
+                    if not base or base == key1:
+                        continue
+                    p["base"] = base
+                    if any(q["dict"] == code and q["base"] == p["base"] for q in rec["proposals"]):
+                        continue
+                    rec["proposals"].append({**p, "dict": code, "L": L, "pc": pc})
+                    n_prop += 1
+            if code in derivations.ASSESS_IN:
+                for text in derivations.assessments(body, code):
+                    if not any(a["dict"] == code and a["text"] == text for a in rec["assessments"]):
+                        rec["assessments"].append({"dict": code, "L": L, "pc": pc, "text": text})
+                        n_assess += 1
+        print(f"{code:5} {n_prop} derivations, {n_assess} assessments", file=sys.stderr)
 
     # MW's own markup of roots: <info verb=...>, <info whitneyroots=...>.
     for key1, L, raw in read_entries("MW"):
@@ -333,7 +366,19 @@ def main():
         for c in rec["cognates"]:
             del c["norm"]
 
-    data = {k: v for k, v in data.items() if v["cognates"] or v["notes"] or v["roots"] or v["rv"]}
+    # Group proposals by the root or base they name, most widely supported first.
+    for rec in data.values():
+        groups = defaultdict(list)
+        for p in rec["proposals"]:
+            groups[p["base"]].append(p)
+        rec["derivations"] = sorted(
+            ({"base": b, "dicts": sorted({p["dict"] for p in ps}, key=lambda d: pub[d]), "items": ps}
+             for b, ps in groups.items()),
+            key=lambda g: (-len(g["dicts"]), min(pub[d] for d in g["dicts"])))
+        del rec["proposals"]
+
+    data = {k: v for k, v in data.items()
+            if v["cognates"] or v["notes"] or v["roots"] or v["rv"] or v["derivations"] or v["assessments"]}
     write_shards(data)
 
 

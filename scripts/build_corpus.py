@@ -28,29 +28,9 @@ CONLLU = Path(sys.argv[1]) if len(sys.argv) > 1 else DCS / "dcs" / "data" / "con
 OUT = ROOT / "site" / "data" / "corpus"
 sys.path.insert(0, str(ROOT / "scripts"))
 from build_dicts import slp1_sort_key  # noqa: E402
+from translit import iast_to_slp1  # noqa: E402
 
 csv.field_size_limit(10_000_000)
-
-IAST_MULTI = [("ai", "E"), ("au", "O"), ("kh", "K"), ("gh", "G"), ("ch", "C"), ("jh", "J"), ("ṭh", "W"),
-              ("ḍh", "Q"), ("th", "T"), ("dh", "D"), ("ph", "P"), ("bh", "B")]
-IAST_SINGLE = {"ā": "A", "ī": "I", "ū": "U", "ṛ": "f", "ṝ": "F", "ḷ": "x", "ḹ": "X", "ṃ": "M", "ṁ": "M",
-               "ḥ": "H", "ṅ": "N", "ñ": "Y", "ṭ": "w", "ḍ": "q", "ṇ": "R", "ś": "S", "ṣ": "z"}
-
-
-def iast_to_slp1(s: str) -> str:
-    s = unicodedata.normalize("NFC", s.lower())
-    out, i = [], 0
-    while i < len(s):
-        for a, b in IAST_MULTI:
-            if s.startswith(a, i):
-                out.append(b)
-                i += len(a)
-                break
-        else:
-            out.append(IAST_SINGLE.get(s[i], s[i]))
-            i += 1
-    return "".join(out)
-
 
 def chapter_slots():
     """Map chapter file path (relative to files/) -> (text name, time slot)."""

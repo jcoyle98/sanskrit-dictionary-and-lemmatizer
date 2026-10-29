@@ -189,7 +189,7 @@ async function renderWord() {
   } else if (tab === 'etym') {
     const rec = await D.etymology(key);
     let lemmaRecs = [];
-    if (!rec || !rec.cognates?.length) {
+    if (!rec || (!rec.cognates?.length && !rec.derivations?.length)) {
       // For an inflected form, show the material for its lemmas.
       await startKosha();
       const lemmas = lemmasOf(E.analyze(key)).slice(0, 4);
